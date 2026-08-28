@@ -1,0 +1,14 @@
+[
+  { "id": "m01", "name": "Espresso", "category": "Coffee", "price": 130, "veg": true, "spicy": false, "popular": true, "description": "Double shot, pulled 25 seconds, dense crema.", "tags": ["hot", "classic"] },
+  { "id": "m02", "name": "Flat White", "category": "Coffee", "price": 180, "veg": true, "spicy": false, "popular": true, "description": "Ristretto shots under velvet microfoam.", "tags": ["hot", "milk-based"] },
+  { "id": "m03", "name": "Pour Over — Ethiopia Yirgacheffe", "category": "Coffee", "price": 240, "veg": true, "spicy": false, "popular": false, "description": "Single origin, floral and citrus notes, hand-brewed.", "tags": ["hot", "single-origin"] },
+  { "id": "m04", "name": "Iced Cold Brew", "category": "Coffee", "price": 200, "veg": true, "spicy": false, "popular": true, "description": "Steeped 18 hours, smooth low-acid finish.", "tags": ["cold"] },
+  { "id": "m05", "name": "Masala Chai", "category": "Tea", "price": 110, "veg": true, "spicy": true, "popular": true, "description": "Hand-pounded spices, slow-simmered with full-fat milk.", "tags": ["hot", "signature"] },
+  { "id": "m06", "name": "Sencha Green Tea", "category": "Tea", "price": 140, "veg": true, "spicy": false, "popular": false, "description": "Steamed Japanese leaves, grassy and light.", "tags": ["hot"] },
+  { "id": "m07", "name": "Butter Croissant", "category": "Bakery", "price": 150, "veg": true, "spicy": false, "popular": true, "description": "72-hour laminated dough, baked to order.", "tags": ["breakfast"] },
+  { "id": "m08", "name": "Almond Financier", "category": "Bakery", "price": 160, "veg": true, "spicy": false, "popular": false, "description": "Brown-butter almond cake, gluten-light.", "tags": ["sweet"] },
+  { "id": "m09", "name": "Sourdough Avocado Toast", "category": "Food", "price": 320, "veg": true, "spicy": true, "popular": true, "description": "House sourdough, smashed avocado, chili flake, lime.", "tags": ["lunch", "breakfast"] },
+  { "id": "m10", "name": "Grilled Halloumi Sandwich", "category": "Food", "price": 340, "veg": true, "spicy": false, "popular": false, "description": "Charred halloumi, roast pepper, basil pesto, focaccia.", "tags": ["lunch"] },
+  { "id": "m11", "name": "Chicken Peri-Peri Wrap", "category": "Food", "price": 360, "veg": false, "spicy": true, "popular": true, "description": "Flame-grilled chicken, peri sauce, slaw, tortilla.", "tags": ["lunch"] },
+  { "id": "m12", "name": "Basque Burnt Cheesecake", "category": "Dessert", "price": 260, "veg": true, "spicy": false, "popular": true, "description": "Caramelized top, molten center, sea salt.", "tags": ["sweet", "signature"] }
+]
