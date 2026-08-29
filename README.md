@@ -1,876 +1,1215 @@
-End-to-End CI/CD Deployment Guide
+# End-to-End CI/CD Deployment Guide
 
-This README contains only the setup, configuration, deployment,
-verification, monitoring, and rollback steps for the project.
+This README contains only the setup, configuration, deployment, verification, monitoring, and rollback steps for the project.
 
-Important: Terraform is provisioned separately. It is not executed by
-the Jenkins application deployment pipeline. Jenkins deploys the
-application to the EKS cluster that was already created by Terraform.
+> **Important:** Terraform is provisioned separately. It is not executed by the Jenkins application deployment pipeline. Jenkins deploys the application to the EKS cluster that was already created by Terraform.
 
-1.  Project Structure
+---
 
-project/ │ ├── app/ │ ├── frontend/ │ │ ├── Dockerfile │ │ ├──
-.env.example │ │ └── application files │ │ │ └── backend/ │ ├──
-Dockerfile │ ├── .env.example │ └── application files │ ├── deployment/
-│ └── kubernetes/ │ ├── frontend-deployment.yaml │ ├──
-frontend-service.yaml │ ├── backend-deployment.yaml │ ├──
-backend-service.yaml │ ├── configmap.yaml │ ├── secret.yaml │ └──
-ingress.yaml │ ├── terraform/ │ ├── modules/ │ │ ├── vpc/ │ │ ├── ec2/ │
-│ ├── security-group/ │ │ ├── iam/ │ │ └── eks/ │ └── main.tf │ ├──
-deployment/ │ └── monitoring/ │ └── datadog/ │ └── values.yaml │ ├──
-Jenkinsfile ├── sonar-project.properties └── README.md
+## 1. Project Structure
 
-2.  Prerequisites
+```text
+project/
+│
+├── app/
+│   ├── frontend/
+│   │   ├── Dockerfile
+│   │   ├── .env.example
+│   │   └── application files
+│   │
+│   └── backend/
+│       ├── Dockerfile
+│       ├── .env.example
+│       └── application files
+│
+├── deployment/
+│   └── kubernetes/
+│       ├── frontend-deployment.yaml
+│       ├── frontend-service.yaml
+│       ├── backend-deployment.yaml
+│       ├── backend-service.yaml
+│       ├── configmap.yaml
+│       ├── secret.yaml
+│       └── ingress.yaml
+│
+├── terraform/
+│   ├── modules/
+│   │   ├── vpc/
+│   │   ├── ec2/
+│   │   ├── security-group/
+│   │   ├── iam/
+│   │   └── eks/
+│   └── main.tf
+│
+├── monitoring/
+│   └── datadog/
+│       └── values.yaml
+│
+├── Jenkinsfile
+├── sonar-project.properties
+└── README.md
+```
+
+---
+
+## 2. Prerequisites
 
 Use an Ubuntu machine for Jenkins and administration.
 
 Check the required tools:
 
-java -version git --version node -v npm -v docker --version aws
---version kubectl version --client helm version terraform version
+```bash
+java -version
+git --version
+node -v
+npm -v
+docker --version
+aws --version
+kubectl version --client
+helm version
+terraform version
 sonar-scanner --version
+```
 
 Check Jenkins:
 
+```bash
 sudo systemctl status jenkins
+```
 
 Check Docker:
 
+```bash
 docker ps
+```
 
 Make sure the Jenkins user has permission to run Docker.
 
-3.  Clone the Repository
+---
 
-Clone the repository:
+## 3. Clone the Repository
 
+```bash
 git clone YOUR_GITHUB_REPOSITORY_URL
+```
 
 Enter the repository:
 
+```bash
 cd YOUR_REPOSITORY_NAME
+```
 
-4.  Configure Environment Files
+---
 
-The repository contains .env.example files.
+## 4. Configure Environment Files
 
-Create the real .env files before local testing or application builds.
+The repository contains `.env.example` files.
 
-4.1 Frontend
+Create the actual `.env` files before local testing or application builds.
 
-cd app/frontend cp .env.example .env
+### 4.1 Frontend
+
+```bash
+cd app/frontend
+cp .env.example .env
+```
 
 Edit:
 
+```text
 app/frontend/.env
+```
 
-Set:
+Configure:
 
+```env
 VITE_COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
 VITE_COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
 VITE_API_BASE_URL=YOUR_BACKEND_API_URL/api
+```
 
 For local backend testing:
 
+```env
 VITE_API_BASE_URL=http://localhost:4000/api
+```
 
-4.2 Backend
+### 4.2 Backend
 
-cd ../backend cp .env.example .env
+```bash
+cd ../backend
+cp .env.example .env
+```
 
 Edit:
 
+```text
 app/backend/.env
+```
 
-Set:
+Configure:
 
-PORT=4000 NODE_ENV=production CLIENT_ORIGIN=YOUR_FRONTEND_URL
+```env
+PORT=4000
+NODE_ENV=production
+CLIENT_ORIGIN=YOUR_FRONTEND_URL
 
 AWS_REGION=ap-south-1
 
 COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
 COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
 
-DYNAMO_MENU_TABLE=CafeMenuItems DYNAMO_ORDERS_TABLE=CafeOrders
+DYNAMO_MENU_TABLE=CafeMenuItems
+DYNAMO_ORDERS_TABLE=CafeOrders
+```
 
 For local frontend testing:
 
+```env
 CLIENT_ORIGIN=http://localhost:8080
+```
 
-Important
+### Important
 
-Do not push real .env files to GitHub.
+Do not push real `.env` files to GitHub.
 
-Use .env.example only for placeholders and documentation.
+Use `.env.example` only for placeholders and documentation.
 
-5.  Configure Amazon Cognito
+---
 
-5.1 Create User Pool
+## 5. Configure Amazon Cognito
+
+### 5.1 Create User Pool
 
 In AWS Console:
 
-Amazon Cognito → User Pools → Create user pool
+```text
+Amazon Cognito
+→ User Pools
+→ Create user pool
+```
 
 Save the:
 
+```text
 User Pool ID
+```
 
-Example:
-
-ap-south-1_xxxxxxxxx
-
-5.2 Create App Client
+### 5.2 Create App Client
 
 Inside the User Pool:
 
-Applications → App clients → Create app client
+```text
+Applications
+→ App clients
+→ Create app client
+```
 
 Save the:
 
+```text
 Client ID
+```
 
 Do not put a private client secret in frontend code.
 
-5.3 Update Frontend .env
+### 5.3 Update Frontend `.env`
 
+```env
 VITE_COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
 VITE_COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
+```
 
-5.4 Update Backend .env
+### 5.4 Update Backend `.env`
 
-AWS_REGION=ap-south-1 COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
+```env
+AWS_REGION=ap-south-1
+COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
 COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
+```
 
-5.5 Configure Callback / Sign-out URLs
+### 5.5 Configure Callback and Sign-out URLs
 
-If the application uses Cognito Hosted UI or OAuth, configure the
-deployed frontend URL in the Cognito app client settings.
+If the application uses Cognito Hosted UI or OAuth, configure the deployed frontend URL in the Cognito app client settings.
 
 Use the exact URL required by the application's authentication flow.
 
-6.  Configure DynamoDB
+---
 
-Create the required DynamoDB tables in the same AWS region used by the
-backend.
+## 6. Configure DynamoDB
+
+Create the required DynamoDB tables in the same AWS region used by the backend.
 
 Example:
 
-CafeMenuItems CafeOrders
+```text
+CafeMenuItems
+CafeOrders
+```
 
-Configure the backend:
+Configure:
 
-AWS_REGION=ap-south-1 DYNAMO_MENU_TABLE=CafeMenuItems
+```env
+AWS_REGION=ap-south-1
+DYNAMO_MENU_TABLE=CafeMenuItems
 DYNAMO_ORDERS_TABLE=CafeOrders
+```
 
-The application should access AWS services using IAM permissions rather
-than long-lived AWS access keys inside the application container.
+The application should access AWS services using IAM permissions rather than long-lived AWS access keys inside the application container.
 
-7.  Test the Application Locally
+---
 
-Before deploying, verify that the application works.
+## 7. Test the Application Locally
 
-7.1 Backend
+### 7.1 Backend
 
-cd app/backend npm install npm start
+```bash
+cd app/backend
+npm install
+npm start
+```
 
 Backend:
 
+```text
 http://localhost:4000
+```
 
 Health endpoint:
 
+```text
 http://localhost:4000/api/health
+```
 
-7.2 Frontend
+### 7.2 Frontend
 
 Open another terminal:
 
-cd app/frontend npm install npm run dev
+```bash
+cd app/frontend
+npm install
+npm run dev
+```
 
 Open the URL shown by Vite.
 
 Verify:
 
+```text
 Login
-
 Cognito authentication
-
 Frontend-to-backend API calls
-
 Application data
-
 Menu operations
-
 Order operations
+```
 
-Stop the local servers after testing.
+---
 
-8.  Configure AWS CLI
+## 8. Configure AWS CLI
 
 Configure AWS on the machine used to provision the infrastructure:
 
+```bash
 aws configure
+```
 
 Verify:
 
+```bash
 aws sts get-caller-identity
+```
 
 Use an IAM identity with only the permissions required for this project.
 
-9.  Provision AWS Infrastructure with Terraform
+---
 
-Terraform must be run separately from the Jenkins application deployment
-pipeline.
+## 9. Provision AWS Infrastructure with Terraform
 
-9.1 Enter Terraform Directory
+Terraform must be run separately from the Jenkins application deployment pipeline.
 
-From the repository root:
+### 9.1 Enter Terraform Directory
 
+```bash
 cd terraform
+```
 
-9.2 Initialize
+### 9.2 Initialize Terraform
 
+```bash
 terraform init
+```
 
-9.3 Format
+### 9.3 Format
 
+```bash
 terraform fmt -recursive
+```
 
-9.4 Validate
+### 9.4 Validate
 
+```bash
 terraform validate
+```
 
 Expected:
 
+```text
 Success! The configuration is valid.
+```
 
-9.5 Review Plan
+### 9.5 Review Plan
 
+```bash
 terraform plan
+```
 
 Review the resources carefully.
 
-9.6 Provision Infrastructure
+### 9.6 Provision Infrastructure
 
+```bash
 terraform apply
+```
 
 Confirm when prompted.
 
-9.7 Get Outputs
+### 9.7 Get Outputs
 
+```bash
 terraform output
+```
 
 Note:
 
-EKS cluster name AWS region
+```text
+EKS cluster name
+AWS region
+```
 
-9.8 Configure kubectl
+### 9.8 Configure kubectl
 
-aws eks update-kubeconfig\
---region YOUR_AWS_REGION\
---name YOUR_EKS_CLUSTER_NAME
+```bash
+aws eks update-kubeconfig \
+  --region YOUR_AWS_REGION \
+  --name YOUR_EKS_CLUSTER_NAME
+```
 
 Verify:
 
+```bash
 kubectl get nodes
+```
 
-The EKS cluster must be ready before Jenkins performs the application
-deployment.
+The EKS cluster must be ready before Jenkins performs the application deployment.
 
-Do not run terraform apply from the Jenkins application deployment
-pipeline.
+> **Do not run `terraform apply` from the Jenkins application deployment pipeline.**
 
-10. Build Docker Images
+---
 
-The application has separate Dockerfiles:
+## 10. Build Docker Images
 
-app/ ├── frontend/ │ └── Dockerfile └── backend/ └── Dockerfile
+### 10.1 Frontend
 
-Run these commands from the repository root.
+From the repository root:
 
-10.1 Frontend
+```bash
+docker build \
+  -t YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest \
+  ./app/frontend
+```
 
-docker build\
--t YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest\
-./app/frontend
+### 10.2 Backend
 
-10.2 Backend
+```bash
+docker build \
+  -t YOUR_DOCKERHUB_USERNAME/cafe-backend:latest \
+  ./app/backend
+```
 
-docker build\
--t YOUR_DOCKERHUB_USERNAME/cafe-backend:latest\
-./app/backend
+### 10.3 Check Images
 
-10.3 Check Images
-
+```bash
 docker images
+```
 
-11. Configure Docker Hub
+---
+
+## 11. Configure Docker Hub
 
 Create two Docker Hub repositories:
 
+```text
 YOUR_DOCKERHUB_USERNAME/cafe-frontend
 YOUR_DOCKERHUB_USERNAME/cafe-backend
+```
 
 Create a Docker Hub Access Token.
 
-Use the access token in Jenkins instead of the Docker Hub account
-password.
+Use the access token in Jenkins instead of the Docker Hub account password.
 
-12. Test Docker Containers
+---
 
-12.1 Backend
+## 12. Test Docker Containers
 
-docker run --rm -p 4000:4000\
-YOUR_DOCKERHUB_USERNAME/cafe-backend:latest
+### 12.1 Backend
+
+```bash
+docker run --rm -p 4000:4000 \
+  YOUR_DOCKERHUB_USERNAME/cafe-backend:latest
+```
 
 Test:
 
+```text
 http://localhost:4000/api/health
+```
 
-12.2 Frontend
+### 12.2 Frontend
 
-docker run --rm -p 8080:80\
-YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest
+```bash
+docker run --rm -p 8080:80 \
+  YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest
+```
 
 Open:
 
+```text
 http://localhost:8080
+```
 
-13. Configure Kubernetes
+---
+
+## 13. Configure Kubernetes
 
 Kubernetes files are stored in:
 
+```text
 deployment/kubernetes/
+```
 
 Required files:
 
-frontend-deployment.yaml frontend-service.yaml backend-deployment.yaml
-backend-service.yaml configmap.yaml secret.yaml ingress.yaml
+```text
+frontend-deployment.yaml
+frontend-service.yaml
+backend-deployment.yaml
+backend-service.yaml
+configmap.yaml
+secret.yaml
+ingress.yaml
+```
 
-13.1 Update Frontend Image
+### 13.1 Update Frontend Image
 
-In the frontend Deployment, use:
+In the frontend Deployment:
 
+```yaml
 image: YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest
+```
 
-13.2 Update Backend Image
+### 13.2 Update Backend Image
 
-In the backend Deployment, use:
+In the backend Deployment:
 
+```yaml
 image: YOUR_DOCKERHUB_USERNAME/cafe-backend:latest
+```
 
 The backend listens on:
 
+```text
 4000
+```
 
-13.3 Configure Services
-
-Frontend service:
-
-frontend-service
-
-Backend service:
-
-backend-service
-
-13.4 Configure Health Checks
-
-Use the backend health endpoint:
-
-/api/health
-
-Configure:
-
-Liveness Probe Readiness Probe
-
-13.5 Configure Environment Values
+### 13.3 Configure Environment Values
 
 Use:
 
+```text
 ConfigMap
+```
 
 for normal application configuration.
 
 Use:
 
+```text
 Secret
+```
 
 for sensitive application values.
 
 Do not commit real secret values.
 
-14. Test Kubernetes Deployment Manually
+---
 
-Before Jenkins performs the deployment, test the Kubernetes
-configuration once.
+## 14. Test Kubernetes Deployment Manually
 
 Check EKS:
 
+```bash
 kubectl get nodes
+```
 
 Apply the Kubernetes manifests:
 
+```bash
 kubectl apply -f deployment/kubernetes/
+```
 
 Check resources:
 
-kubectl get deployments kubectl get pods kubectl get services kubectl
-get ingress
+```bash
+kubectl get deployments
+kubectl get pods
+kubectl get services
+kubectl get ingress
+```
 
 Check backend Pods:
 
+```bash
 kubectl get pods -l app=backend
+```
 
 Check frontend Pods:
 
+```bash
 kubectl get pods -l app=frontend
+```
 
 View logs:
 
+```bash
 kubectl logs POD_NAME
+```
 
 Verify the backend health endpoint.
 
-Once the manual Kubernetes deployment works, Jenkins can automate the
-same deployment.
+---
 
-15. Configure Ingress
+## 15. Configure Ingress
 
-Make sure the required Ingress Controller is installed in the EKS
-cluster.
+Make sure the required Ingress Controller is installed in the EKS cluster.
 
 Check:
 
+```bash
 kubectl get ingress
+```
 
 Get the load balancer / Ingress address:
 
+```bash
 kubectl get ingress
+```
 
 Use the resulting address to access the application.
 
-16. Jenkins Setup
+---
+
+## 16. Jenkins Setup
 
 Start Jenkins:
 
+```bash
 sudo systemctl start jenkins
+```
 
 Check:
 
+```bash
 sudo systemctl status jenkins
+```
 
 Open Jenkins in the browser.
 
 Create a Pipeline job:
 
-New Item → Pipeline
+```text
+New Item
+→ Pipeline
+```
 
-17. Install Jenkins Plugins
+---
 
-Go to:
-
-Manage Jenkins → Plugins
-
-Install the plugins required by the Jenkins setup.
-
-Common plugins used by this project:
-
-Pipeline Git GitHub integration / GitHub Branch Source Credentials
-Binding Docker Pipeline AWS Credentials SonarQube Scanner
-
-Use plugin versions compatible with the installed Jenkins version.
-
-18. Configure Jenkins Credentials
+## 17. Install Jenkins Plugins
 
 Go to:
 
-Manage Jenkins → Credentials → System → Global credentials
+```text
+Manage Jenkins
+→ Plugins
+```
 
-18.1 Docker Hub
+Install the plugins required by the Jenkinsfile.
+
+Common plugins:
+
+```text
+Pipeline
+Git
+GitHub integration / GitHub Branch Source
+Credentials Binding
+Docker Pipeline
+AWS Credentials
+SonarQube Scanner
+```
+
+---
+
+## 18. Configure Jenkins Credentials
+
+Go to:
+
+```text
+Manage Jenkins
+→ Credentials
+→ System
+→ Global credentials
+```
+
+### 18.1 Docker Hub
 
 Create:
 
-Kind: Username with password Username: YOUR_DOCKERHUB_USERNAME Password:
-YOUR_DOCKERHUB_ACCESS_TOKEN ID: dockerhub-credentials
+```text
+Kind: Username with password
+Username: YOUR_DOCKERHUB_USERNAME
+Password: YOUR_DOCKERHUB_ACCESS_TOKEN
+ID: dockerhub-credentials
+```
 
-The Jenkinsfile uses:
-
-dockerhub-credentials
-
-18.2 AWS
+### 18.2 AWS
 
 Create:
 
-Kind: AWS Credentials ID: aws-jenkins-credentials Access Key ID:
-YOUR_AWS_ACCESS_KEY Secret Access Key: YOUR_AWS_SECRET_KEY
+```text
+Kind: AWS Credentials
+ID: aws-jenkins-credentials
+Access Key ID: YOUR_AWS_ACCESS_KEY
+Secret Access Key: YOUR_AWS_SECRET_KEY
+```
 
-These credentials allow Jenkins to run AWS CLI commands and connect to
-the existing EKS cluster.
-
-18.3 SonarQube
+### 18.3 SonarQube
 
 Create/configure the SonarQube token in Jenkins Credentials.
 
-Do not place the token directly inside the Jenkinsfile.
+Do not place tokens directly inside the Jenkinsfile.
 
-19. Configure SonarQube
+---
+
+## 19. Configure SonarQube
 
 Create a SonarQube project.
 
 Example:
 
+```text
 Project Key: cafe-webapp
+```
 
 The repository contains:
 
+```text
 sonar-project.properties
+```
 
-Example configuration:
+Example:
 
-sonar.projectKey=cafe-webapp sonar.projectName=Cafe Web App
+```properties
+sonar.projectKey=cafe-webapp
+sonar.projectName=Cafe Web App
 sonar.projectVersion=1.0
 
-sonar.sources=app/frontend,app/backend sonar.sourceEncoding=UTF-8
+sonar.sources=app/frontend,app/backend
+sonar.sourceEncoding=UTF-8
 
 sonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**
+```
 
-19.1 Configure SonarQube in Jenkins
+### 19.1 Configure SonarQube in Jenkins
 
 Go to:
 
-Manage Jenkins → System → SonarQube servers
+```text
+Manage Jenkins
+→ System
+→ SonarQube servers
+```
 
 Set:
 
+```text
 Name: SonarQube
+```
 
-The Jenkinsfile references:
+The Jenkinsfile should reference:
 
+```text
 withSonarQubeEnv('SonarQube')
+```
 
-19.2 Configure SonarQube Webhook
+### 19.2 Configure SonarQube Webhook
 
-Configure the SonarQube webhook to:
+Configure the SonarQube webhook:
 
+```text
 https://YOUR_JENKINS_URL/sonarqube-webhook/
+```
 
-The webhook allows Jenkins to receive the Quality Gate result.
+---
 
-20. Configure Jenkins Pipeline from SCM
+## 20. Configure Jenkins Pipeline from SCM
 
 In Jenkins:
 
-New Item → Pipeline
+```text
+New Item
+→ Pipeline
+```
 
 Set:
 
-Definition: Pipeline script from SCM SCM: Git Repository URL:
-YOUR_GITHUB_REPOSITORY_URL Branch: \*/main Script Path: Jenkinsfile
+```text
+Definition: Pipeline script from SCM
+SCM: Git
+Repository URL: YOUR_GITHUB_REPOSITORY_URL
+Branch: */main
+Script Path: Jenkinsfile
+```
 
-21. Configure GitHub Webhook
+---
 
-The pipeline should start automatically after a Git push.
+## 21. Configure GitHub Webhook
 
 In GitHub:
 
-Repository → Settings → Webhooks → Add webhook
+```text
+Repository
+→ Settings
+→ Webhooks
+→ Add webhook
+```
 
 Set:
 
-Payload URL: https://YOUR_JENKINS_URL/github-webhook/
+```text
+Payload URL:
+https://YOUR_JENKINS_URL/github-webhook/
+```
 
 Content type:
 
+```text
 application/json
+```
 
 Select:
 
+```text
 Just the push event
+```
 
 Save the webhook.
 
-The Jenkinsfile contains:
+Test:
 
-triggers { githubPush() }
+```bash
+git add .
+git commit -m "Update application"
+git push origin main
+```
 
-Test the trigger:
+---
 
-git add . git commit -m "Update application" git push origin main
-
-22. Jenkins CI/CD Pipeline
+## 22. Jenkins CI/CD Pipeline
 
 The application deployment pipeline runs in this order:
 
-Checkout ↓ Frontend Build ↓ Backend Install ↓ SonarQube Analysis ↓
-Quality Gate ↓ Docker Build ↓ Push to Docker Hub ↓ Deploy to EKS ↓
+```text
+Checkout
+↓
+Frontend Build
+↓
+Backend Install
+↓
+SonarQube Analysis
+↓
+Quality Gate
+↓
+Docker Build
+↓
+Push to Docker Hub
+↓
+Deploy to EKS
+↓
 Rollout Verification
+```
 
-22.1 Checkout
+### 22.1 Checkout
 
 Jenkins checks out the latest code from GitHub.
 
-22.2 Frontend Build
+### 22.2 Frontend Build
 
-cd app/frontend npm ci npm run build
+```bash
+cd app/frontend
+npm ci
+npm run build
+```
 
-22.3 Backend Install
+### 22.3 Backend Install
 
-cd app/backend npm ci
+```bash
+cd app/backend
+npm ci
+```
 
-22.4 SonarQube Analysis
+### 22.4 SonarQube Analysis
 
 Jenkins runs the scanner using:
 
+```text
 sonar-project.properties
+```
 
-22.5 Quality Gate
+### 22.5 Quality Gate
 
-Jenkins waits for the SonarQube result.
+```text
+PASS → continue
+FAIL → stop
+```
 
-PASS → continue FAIL → stop
+The Jenkinsfile should use:
 
-The Jenkinsfile uses:
-
+```text
 waitForQualityGate abortPipeline: true
+```
 
-If the Quality Gate fails, Jenkins stops before Docker push and EKS
-deployment.
-
-22.6 Docker Build
+### 22.6 Docker Build
 
 Jenkins builds:
 
+```text
 YOUR_DOCKERHUB_USERNAME/cafe-frontend:BUILD_NUMBER
 YOUR_DOCKERHUB_USERNAME/cafe-backend:BUILD_NUMBER
+```
 
-22.7 Push to Docker Hub
+### 22.7 Push to Docker Hub
 
 Jenkins uses:
 
+```text
 dockerhub-credentials
+```
 
 to log in and push both images.
 
-22.8 Deploy to EKS
+### 22.8 Deploy to EKS
 
-Jenkins uses:
+Jenkins connects to the existing EKS cluster:
 
-aws-jenkins-credentials
+```bash
+aws eks update-kubeconfig \
+  --region YOUR_AWS_REGION \
+  --name YOUR_EKS_CLUSTER_NAME
+```
 
-Configure access:
+Update the frontend:
 
-aws eks update-kubeconfig\
---region YOUR_AWS_REGION\
---name YOUR_EKS_CLUSTER_NAME
+```bash
+kubectl set image deployment/frontend \
+  frontend=YOUR_DOCKERHUB_USERNAME/cafe-frontend:$BUILD_NUMBER
+```
 
-Update the frontend Deployment:
+Update the backend:
 
-kubectl set image deployment/frontend\
-frontend=YOUR_DOCKERHUB_USERNAME/cafe-frontend:\$BUILD_NUMBER
+```bash
+kubectl set image deployment/backend \
+  backend=YOUR_DOCKERHUB_USERNAME/cafe-backend:$BUILD_NUMBER
+```
 
-Update the backend Deployment:
+### 22.9 Rollout Verification
 
-kubectl set image deployment/backend\
-backend=YOUR_DOCKERHUB_USERNAME/cafe-backend:\$BUILD_NUMBER
+```bash
+kubectl rollout status deployment/frontend
+kubectl rollout status deployment/backend
+```
 
-22.9 Rollout Verification
+---
 
-kubectl rollout status deployment/frontend kubectl rollout status
-deployment/backend
+## 23. Configure Datadog
 
-23. Configure Datadog
+### 23.1 Add Helm Repository
 
-The project uses the Datadog Helm chart.
+```bash
+helm repo add datadog https://helm.datadoghq.com
+helm repo update
+```
 
-23.1 Add Helm Repository
+### 23.2 Create Namespace
 
-helm repo add datadog https://helm.datadoghq.com helm repo update
-
-23.2 Create Namespace
-
+```bash
 kubectl create namespace datadog
+```
 
-23.3 Create Datadog Secret
+### 23.3 Create Datadog Secret
 
 Set the API key only in the shell:
 
+```bash
 export DD_API_KEY="YOUR_DATADOG_API_KEY"
+```
 
 Create the Kubernetes Secret:
 
-kubectl create secret generic datadog-secret\
---namespace datadog\
---from-literal=api-key="\$DD_API_KEY"
+```bash
+kubectl create secret generic datadog-secret \
+  --namespace datadog \
+  --from-literal=api-key="$DD_API_KEY"
+```
 
 Do not commit the API key to GitHub.
 
-23.4 Configure Datadog Values
+### 23.4 Configure Datadog Values
 
 Create:
 
-deployment/monitoring/datadog/values.yaml
+```text
+monitoring/datadog/values.yaml
+```
 
-Use:
+Example:
 
-datadog: apiKeyExistingSecret: datadog-secret clusterName:
-YOUR_EKS_CLUSTER_NAME site: datadoghq.com
+```yaml
+datadog:
+  apiKeyExistingSecret: datadog-secret
+  clusterName: YOUR_EKS_CLUSTER_NAME
+  site: datadoghq.com
 
-logs: enabled: true containerCollectAll: true
+logs:
+  enabled: true
+  containerCollectAll: true
 
-processAgent: enabled: true
+processAgent:
+  enabled: true
+```
 
-The API key must not be stored in values.yaml.
+The API key must not be stored in `values.yaml`.
 
-23.5 Install Datadog Agent
+### 23.5 Install Datadog Agent
 
-helm install datadog-agent\
--f deployment/monitoring/datadog/values.yaml\
-datadog/datadog\
---namespace datadog
+```bash
+helm install datadog-agent \
+  -f monitoring/datadog/values.yaml \
+  datadog/datadog \
+  --namespace datadog
+```
 
-23.6 Verify Datadog
+### 23.6 Verify Datadog
 
-kubectl get pods -n datadog kubectl get daemonset -n datadog helm list
--n datadog
+```bash
+kubectl get pods -n datadog
+kubectl get daemonset -n datadog
+helm list -n datadog
+```
 
-23.7 Verify Kubernetes Monitoring
+### 23.7 Verify Kubernetes Monitoring
 
 In Datadog:
 
-Infrastructure → Kubernetes
+```text
+Infrastructure
+→ Kubernetes
+```
 
 Verify:
 
-EKS nodes Pods Containers CPU usage Memory usage Network usage Pod
-restarts Node health
+```text
+EKS nodes
+Pods
+Containers
+CPU usage
+Memory usage
+Network usage
+Pod restarts
+Node health
+```
 
-23.8 Verify Logs
+### 23.8 Verify Logs
 
-With container log collection enabled, open:
+In Datadog:
 
-Logs → Explorer
+```text
+Logs
+→ Explorer
+```
 
-Use application/service filters as required.
+Verify that application and container logs are being received.
 
-23.9 Create Dashboard
+### 23.9 Create Dashboard
 
-Recommended dashboard metrics:
+Add:
 
-EKS CPU EKS memory Pod CPU Pod memory Pod restarts Network traffic
+```text
+EKS CPU
+EKS memory
+Pod CPU
+Pod memory
+Pod restarts
+Network traffic
 Application logs
+```
 
-23.10 Create Alerts
+### 23.10 Create Alerts
 
-Recommended monitors:
+Configure alerts for:
 
-High CPU High memory High disk usage Pod unavailable Pod restart /
-crash-loop Node unavailable High application error rate
+```text
+High CPU
+High memory
+High disk usage
+Pod unavailable
+Pod restart / crash-loop
+Node unavailable
+High application error rate
+```
 
-24. First End-to-End Deployment
+---
 
-After infrastructure and service configuration is complete, test the
-complete CI/CD flow.
+## 24. First End-to-End Deployment
 
-Step 1: Make a Code Change
+### Step 1: Make a Code Change
 
 Make a small application change.
 
-Step 2: Commit
+### Step 2: Commit
 
-git add . git commit -m "Update application"
+```bash
+git add .
+git commit -m "Update application"
+```
 
-Step 3: Push
+### Step 3: Push
 
+```bash
 git push origin main
+```
 
-Step 4: Verify GitHub Webhook
+### Step 4: Verify GitHub Webhook
 
-GitHub sends the push event to Jenkins.
+Verify that GitHub sends the push event to Jenkins.
 
-Step 5: Verify Jenkins Checkout
+### Step 5: Verify Jenkins
 
-Jenkins checks out the latest commit.
+Verify that Jenkins:
 
-Step 6: Verify Build
+```text
+Checks out the latest code
+Builds the application
+Runs SonarQube analysis
+Checks the Quality Gate
+Builds Docker images
+Pushes images to Docker Hub
+Deploys to EKS
+Verifies the rollout
+```
 
-Jenkins installs dependencies and builds the frontend.
+### Step 6: Verify Kubernetes
 
-Step 7: Verify SonarQube
+```bash
+kubectl get pods
+kubectl get deployments
+kubectl get services
+kubectl get ingress
+```
 
-Jenkins sends the source code for analysis.
-
-Step 8: Verify Quality Gate
-
-PASS → continue FAIL → pipeline stops
-
-Step 9: Verify Docker Build
-
-Jenkins builds the frontend and backend images.
-
-Step 10: Verify Docker Hub
-
-Jenkins pushes the images using the Docker Hub credential.
-
-Step 11: Verify EKS Connection
-
-Jenkins connects to the already-created EKS cluster.
-
-Step 12: Verify Kubernetes Deployment
-
-Jenkins updates the frontend and backend Deployments.
-
-Step 13: Verify Rollout
-
-kubectl rollout status deployment/frontend kubectl rollout status
-deployment/backend
-
-Step 14: Verify Application
-
-kubectl get pods kubectl get deployments kubectl get services kubectl
-get ingress
+### Step 7: Verify Application
 
 Open the frontend using the Ingress/load-balancer address.
 
 Test:
 
-Login Cognito authentication Frontend-to-backend API calls DynamoDB
-operations Application functionality
+```text
+Login
+Cognito authentication
+Frontend-to-backend API calls
+DynamoDB operations
+Application functionality
+```
 
-Step 15: Verify Datadog
+### Step 8: Verify Datadog
 
 Check:
 
-EKS cluster Nodes Pods Metrics Logs Alerts
+```text
+EKS cluster
+Nodes
+Pods
+Metrics
+Logs
+Alerts
+```
 
-25. Rollback
+---
+
+## 25. Rollback
 
 Check deployment history:
 
-kubectl rollout history deployment/frontend kubectl rollout history
-deployment/backend
+```bash
+kubectl rollout history deployment/frontend
+kubectl rollout history deployment/backend
+```
 
 Rollback frontend:
 
+```bash
 kubectl rollout undo deployment/frontend
+```
 
 Rollback backend:
 
+```bash
 kubectl rollout undo deployment/backend
+```
 
 Verify:
 
-kubectl rollout status deployment/frontend kubectl rollout status
-deployment/backend
+```bash
+kubectl rollout status deployment/frontend
+kubectl rollout status deployment/backend
+```
 
-26. Security Checklist
+---
+
+## 26. Security Checklist
 
 Never commit:
 
-Real .env files AWS access keys AWS secret keys Docker Hub passwords
-Docker Hub access tokens SonarQube tokens Datadog API keys SSH private
-keys Terraform state files
+```text
+Real .env files
+AWS access keys
+AWS secret keys
+Docker Hub passwords
+Docker Hub access tokens
+SonarQube tokens
+Datadog API keys
+SSH private keys
+Terraform state files
+```
 
 Use:
 
-.env.example Jenkins Credentials Kubernetes Secrets IAM roles / workload
-identity Restricted Security Groups Least-privilege IAM permissions
+```text
+.env.example
+Jenkins Credentials
+Kubernetes Secrets
+IAM roles
+Restricted Security Groups
+Least-privilege IAM permissions
+```
+
+---
