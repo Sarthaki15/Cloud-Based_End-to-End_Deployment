@@ -1,67 +1,33 @@
 End-to-End CI/CD Deployment Guide
 
-This README contains only the setup, configuration, deployment, verification, monitoring, and rollback steps for the project.
+This README contains only the setup, configuration, deployment,
+verification, monitoring, and rollback steps for the project.
 
-Important: Terraform is provisioned separately. It is not executed by the Jenkins application deployment pipeline. Jenkins deploys the application to the EKS cluster that was already created by Terraform.
+Important: Terraform is provisioned separately. It is not executed by
+the Jenkins application deployment pipeline. Jenkins deploys the
+application to the EKS cluster that was already created by Terraform.
 
-1. Project Structure
+1.  Project Structure
 
-project/
-│
-├── app/
-│   ├── frontend/
-│   │   ├── Dockerfile
-│   │   ├── .env.example
-│   │   └── application files
-│   │
-│   └── backend/
-│       ├── Dockerfile
-│       ├── .env.example
-│       └── application files
-│
-├── deployment/
-│   └── kubernetes/
-│       ├── frontend-deployment.yaml
-│       ├── frontend-service.yaml
-│       ├── backend-deployment.yaml
-│       ├── backend-service.yaml
-│       ├── configmap.yaml
-│       ├── secret.yaml
-│       └── ingress.yaml
-│
-├── terraform/
-│   ├── modules/
-│   │   ├── vpc/
-│   │   ├── ec2/
-│   │   ├── security-group/
-│   │   ├── iam/
-│   │   └── eks/
-│   └── main.tf
-│
-├── deployment/
-│   └── monitoring/
-│       └── datadog/
-│           └── values.yaml
-│
-├── Jenkinsfile
-├── sonar-project.properties
-└── README.md
+project/ │ ├── app/ │ ├── frontend/ │ │ ├── Dockerfile │ │ ├──
+.env.example │ │ └── application files │ │ │ └── backend/ │ ├──
+Dockerfile │ ├── .env.example │ └── application files │ ├── deployment/
+│ └── kubernetes/ │ ├── frontend-deployment.yaml │ ├──
+frontend-service.yaml │ ├── backend-deployment.yaml │ ├──
+backend-service.yaml │ ├── configmap.yaml │ ├── secret.yaml │ └──
+ingress.yaml │ ├── terraform/ │ ├── modules/ │ │ ├── vpc/ │ │ ├── ec2/ │
+│ ├── security-group/ │ │ ├── iam/ │ │ └── eks/ │ └── main.tf │ ├──
+deployment/ │ └── monitoring/ │ └── datadog/ │ └── values.yaml │ ├──
+Jenkinsfile ├── sonar-project.properties └── README.md
 
-2. Prerequisites
+2.  Prerequisites
 
 Use an Ubuntu machine for Jenkins and administration.
 
 Check the required tools:
 
-java -version
-git --version
-node -v
-npm -v
-docker --version
-aws --version
-kubectl version --client
-helm version
-terraform version
+java -version git --version node -v npm -v docker --version aws
+--version kubectl version --client helm version terraform version
 sonar-scanner --version
 
 Check Jenkins:
@@ -74,7 +40,7 @@ docker ps
 
 Make sure the Jenkins user has permission to run Docker.
 
-3. Clone the Repository
+3.  Clone the Repository
 
 Clone the repository:
 
@@ -84,7 +50,7 @@ Enter the repository:
 
 cd YOUR_REPOSITORY_NAME
 
-4. Configure Environment Files
+4.  Configure Environment Files
 
 The repository contains .env.example files.
 
@@ -92,8 +58,7 @@ Create the real .env files before local testing or application builds.
 
 4.1 Frontend
 
-cd app/frontend
-cp .env.example .env
+cd app/frontend cp .env.example .env
 
 Edit:
 
@@ -111,8 +76,7 @@ VITE_API_BASE_URL=http://localhost:4000/api
 
 4.2 Backend
 
-cd ../backend
-cp .env.example .env
+cd ../backend cp .env.example .env
 
 Edit:
 
@@ -120,17 +84,14 @@ app/backend/.env
 
 Set:
 
-PORT=4000
-NODE_ENV=production
-CLIENT_ORIGIN=YOUR_FRONTEND_URL
+PORT=4000 NODE_ENV=production CLIENT_ORIGIN=YOUR_FRONTEND_URL
 
 AWS_REGION=ap-south-1
 
 COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
 COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
 
-DYNAMO_MENU_TABLE=CafeMenuItems
-DYNAMO_ORDERS_TABLE=CafeOrders
+DYNAMO_MENU_TABLE=CafeMenuItems DYNAMO_ORDERS_TABLE=CafeOrders
 
 For local frontend testing:
 
@@ -142,15 +103,13 @@ Do not push real .env files to GitHub.
 
 Use .env.example only for placeholders and documentation.
 
-5. Configure Amazon Cognito
+5.  Configure Amazon Cognito
 
 5.1 Create User Pool
 
 In AWS Console:
 
-Amazon Cognito
-→ User Pools
-→ Create user pool
+Amazon Cognito → User Pools → Create user pool
 
 Save the:
 
@@ -164,9 +123,7 @@ ap-south-1_xxxxxxxxx
 
 Inside the User Pool:
 
-Applications
-→ App clients
-→ Create app client
+Applications → App clients → Create app client
 
 Save the:
 
@@ -181,42 +138,40 @@ VITE_COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
 
 5.4 Update Backend .env
 
-AWS_REGION=ap-south-1
-COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
+AWS_REGION=ap-south-1 COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
 COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
 
 5.5 Configure Callback / Sign-out URLs
 
-If the application uses Cognito Hosted UI or OAuth, configure the deployed frontend URL in the Cognito app client settings.
+If the application uses Cognito Hosted UI or OAuth, configure the
+deployed frontend URL in the Cognito app client settings.
 
 Use the exact URL required by the application's authentication flow.
 
-6. Configure DynamoDB
+6.  Configure DynamoDB
 
-Create the required DynamoDB tables in the same AWS region used by the backend.
+Create the required DynamoDB tables in the same AWS region used by the
+backend.
 
 Example:
 
-CafeMenuItems
-CafeOrders
+CafeMenuItems CafeOrders
 
 Configure the backend:
 
-AWS_REGION=ap-south-1
-DYNAMO_MENU_TABLE=CafeMenuItems
+AWS_REGION=ap-south-1 DYNAMO_MENU_TABLE=CafeMenuItems
 DYNAMO_ORDERS_TABLE=CafeOrders
 
-The application should access AWS services using IAM permissions rather than long-lived AWS access keys inside the application container.
+The application should access AWS services using IAM permissions rather
+than long-lived AWS access keys inside the application container.
 
-7. Test the Application Locally
+7.  Test the Application Locally
 
 Before deploying, verify that the application works.
 
 7.1 Backend
 
-cd app/backend
-npm install
-npm start
+cd app/backend npm install npm start
 
 Backend:
 
@@ -230,9 +185,7 @@ http://localhost:4000/api/health
 
 Open another terminal:
 
-cd app/frontend
-npm install
-npm run dev
+cd app/frontend npm install npm run dev
 
 Open the URL shown by Vite.
 
@@ -252,7 +205,7 @@ Order operations
 
 Stop the local servers after testing.
 
-8. Configure AWS CLI
+8.  Configure AWS CLI
 
 Configure AWS on the machine used to provision the infrastructure:
 
@@ -264,9 +217,10 @@ aws sts get-caller-identity
 
 Use an IAM identity with only the permissions required for this project.
 
-9. Provision AWS Infrastructure with Terraform
+9.  Provision AWS Infrastructure with Terraform
 
-Terraform must be run separately from the Jenkins application deployment pipeline.
+Terraform must be run separately from the Jenkins application deployment
+pipeline.
 
 9.1 Enter Terraform Directory
 
@@ -308,46 +262,43 @@ terraform output
 
 Note:
 
-EKS cluster name
-AWS region
+EKS cluster name AWS region
 
 9.8 Configure kubectl
 
-aws eks update-kubeconfig \
-  --region YOUR_AWS_REGION \
-  --name YOUR_EKS_CLUSTER_NAME
+aws eks update-kubeconfig\
+--region YOUR_AWS_REGION\
+--name YOUR_EKS_CLUSTER_NAME
 
 Verify:
 
 kubectl get nodes
 
-The EKS cluster must be ready before Jenkins performs the application deployment.
+The EKS cluster must be ready before Jenkins performs the application
+deployment.
 
-Do not run terraform apply from the Jenkins application deployment pipeline.
+Do not run terraform apply from the Jenkins application deployment
+pipeline.
 
 10. Build Docker Images
 
 The application has separate Dockerfiles:
 
-app/
-├── frontend/
-│   └── Dockerfile
-└── backend/
-    └── Dockerfile
+app/ ├── frontend/ │ └── Dockerfile └── backend/ └── Dockerfile
 
 Run these commands from the repository root.
 
 10.1 Frontend
 
-docker build \
-  -t YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest \
-  ./app/frontend
+docker build\
+-t YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest\
+./app/frontend
 
 10.2 Backend
 
-docker build \
-  -t YOUR_DOCKERHUB_USERNAME/cafe-backend:latest \
-  ./app/backend
+docker build\
+-t YOUR_DOCKERHUB_USERNAME/cafe-backend:latest\
+./app/backend
 
 10.3 Check Images
 
@@ -362,14 +313,15 @@ YOUR_DOCKERHUB_USERNAME/cafe-backend
 
 Create a Docker Hub Access Token.
 
-Use the access token in Jenkins instead of the Docker Hub account password.
+Use the access token in Jenkins instead of the Docker Hub account
+password.
 
 12. Test Docker Containers
 
 12.1 Backend
 
-docker run --rm -p 4000:4000 \
-  YOUR_DOCKERHUB_USERNAME/cafe-backend:latest
+docker run --rm -p 4000:4000\
+YOUR_DOCKERHUB_USERNAME/cafe-backend:latest
 
 Test:
 
@@ -377,8 +329,8 @@ http://localhost:4000/api/health
 
 12.2 Frontend
 
-docker run --rm -p 8080:80 \
-  YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest
+docker run --rm -p 8080:80\
+YOUR_DOCKERHUB_USERNAME/cafe-frontend:latest
 
 Open:
 
@@ -392,13 +344,8 @@ deployment/kubernetes/
 
 Required files:
 
-frontend-deployment.yaml
-frontend-service.yaml
-backend-deployment.yaml
-backend-service.yaml
-configmap.yaml
-secret.yaml
-ingress.yaml
+frontend-deployment.yaml frontend-service.yaml backend-deployment.yaml
+backend-service.yaml configmap.yaml secret.yaml ingress.yaml
 
 13.1 Update Frontend Image
 
@@ -434,8 +381,7 @@ Use the backend health endpoint:
 
 Configure:
 
-Liveness Probe
-Readiness Probe
+Liveness Probe Readiness Probe
 
 13.5 Configure Environment Values
 
@@ -455,7 +401,8 @@ Do not commit real secret values.
 
 14. Test Kubernetes Deployment Manually
 
-Before Jenkins performs the deployment, test the Kubernetes configuration once.
+Before Jenkins performs the deployment, test the Kubernetes
+configuration once.
 
 Check EKS:
 
@@ -467,10 +414,8 @@ kubectl apply -f deployment/kubernetes/
 
 Check resources:
 
-kubectl get deployments
-kubectl get pods
-kubectl get services
-kubectl get ingress
+kubectl get deployments kubectl get pods kubectl get services kubectl
+get ingress
 
 Check backend Pods:
 
@@ -486,11 +431,13 @@ kubectl logs POD_NAME
 
 Verify the backend health endpoint.
 
-Once the manual Kubernetes deployment works, Jenkins can automate the same deployment.
+Once the manual Kubernetes deployment works, Jenkins can automate the
+same deployment.
 
 15. Configure Ingress
 
-Make sure the required Ingress Controller is installed in the EKS cluster.
+Make sure the required Ingress Controller is installed in the EKS
+cluster.
 
 Check:
 
@@ -516,27 +463,20 @@ Open Jenkins in the browser.
 
 Create a Pipeline job:
 
-New Item
-→ Pipeline
+New Item → Pipeline
 
 17. Install Jenkins Plugins
 
 Go to:
 
-Manage Jenkins
-→ Plugins
+Manage Jenkins → Plugins
 
 Install the plugins required by the Jenkins setup.
 
 Common plugins used by this project:
 
-Pipeline
-Git
-GitHub integration / GitHub Branch Source
-Credentials Binding
-Docker Pipeline
-AWS Credentials
-SonarQube Scanner
+Pipeline Git GitHub integration / GitHub Branch Source Credentials
+Binding Docker Pipeline AWS Credentials SonarQube Scanner
 
 Use plugin versions compatible with the installed Jenkins version.
 
@@ -544,19 +484,14 @@ Use plugin versions compatible with the installed Jenkins version.
 
 Go to:
 
-Manage Jenkins
-→ Credentials
-→ System
-→ Global credentials
+Manage Jenkins → Credentials → System → Global credentials
 
 18.1 Docker Hub
 
 Create:
 
-Kind: Username with password
-Username: YOUR_DOCKERHUB_USERNAME
-Password: YOUR_DOCKERHUB_ACCESS_TOKEN
-ID: dockerhub-credentials
+Kind: Username with password Username: YOUR_DOCKERHUB_USERNAME Password:
+YOUR_DOCKERHUB_ACCESS_TOKEN ID: dockerhub-credentials
 
 The Jenkinsfile uses:
 
@@ -566,12 +501,11 @@ dockerhub-credentials
 
 Create:
 
-Kind: AWS Credentials
-ID: aws-jenkins-credentials
-Access Key ID: YOUR_AWS_ACCESS_KEY
-Secret Access Key: YOUR_AWS_SECRET_KEY
+Kind: AWS Credentials ID: aws-jenkins-credentials Access Key ID:
+YOUR_AWS_ACCESS_KEY Secret Access Key: YOUR_AWS_SECRET_KEY
 
-These credentials allow Jenkins to run AWS CLI commands and connect to the existing EKS cluster.
+These credentials allow Jenkins to run AWS CLI commands and connect to
+the existing EKS cluster.
 
 18.3 SonarQube
 
@@ -593,12 +527,10 @@ sonar-project.properties
 
 Example configuration:
 
-sonar.projectKey=cafe-webapp
-sonar.projectName=Cafe Web App
+sonar.projectKey=cafe-webapp sonar.projectName=Cafe Web App
 sonar.projectVersion=1.0
 
-sonar.sources=app/frontend,app/backend
-sonar.sourceEncoding=UTF-8
+sonar.sources=app/frontend,app/backend sonar.sourceEncoding=UTF-8
 
 sonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**
 
@@ -606,9 +538,7 @@ sonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**
 
 Go to:
 
-Manage Jenkins
-→ System
-→ SonarQube servers
+Manage Jenkins → System → SonarQube servers
 
 Set:
 
@@ -630,16 +560,12 @@ The webhook allows Jenkins to receive the Quality Gate result.
 
 In Jenkins:
 
-New Item
-→ Pipeline
+New Item → Pipeline
 
 Set:
 
-Definition: Pipeline script from SCM
-SCM: Git
-Repository URL: YOUR_GITHUB_REPOSITORY_URL
-Branch: */main
-Script Path: Jenkinsfile
+Definition: Pipeline script from SCM SCM: Git Repository URL:
+YOUR_GITHUB_REPOSITORY_URL Branch: \*/main Script Path: Jenkinsfile
 
 21. Configure GitHub Webhook
 
@@ -647,15 +573,11 @@ The pipeline should start automatically after a Git push.
 
 In GitHub:
 
-Repository
-→ Settings
-→ Webhooks
-→ Add webhook
+Repository → Settings → Webhooks → Add webhook
 
 Set:
 
-Payload URL:
-https://YOUR_JENKINS_URL/github-webhook/
+Payload URL: https://YOUR_JENKINS_URL/github-webhook/
 
 Content type:
 
@@ -669,36 +591,18 @@ Save the webhook.
 
 The Jenkinsfile contains:
 
-triggers {
-    githubPush()
-}
+triggers { githubPush() }
 
 Test the trigger:
 
-git add .
-git commit -m "Update application"
-git push origin main
+git add . git commit -m "Update application" git push origin main
 
 22. Jenkins CI/CD Pipeline
 
 The application deployment pipeline runs in this order:
 
-Checkout
-↓
-Frontend Build
-↓
-Backend Install
-↓
-SonarQube Analysis
-↓
-Quality Gate
-↓
-Docker Build
-↓
-Push to Docker Hub
-↓
-Deploy to EKS
-↓
+Checkout ↓ Frontend Build ↓ Backend Install ↓ SonarQube Analysis ↓
+Quality Gate ↓ Docker Build ↓ Push to Docker Hub ↓ Deploy to EKS ↓
 Rollout Verification
 
 22.1 Checkout
@@ -707,14 +611,11 @@ Jenkins checks out the latest code from GitHub.
 
 22.2 Frontend Build
 
-cd app/frontend
-npm ci
-npm run build
+cd app/frontend npm ci npm run build
 
 22.3 Backend Install
 
-cd app/backend
-npm ci
+cd app/backend npm ci
 
 22.4 SonarQube Analysis
 
@@ -726,14 +627,14 @@ sonar-project.properties
 
 Jenkins waits for the SonarQube result.
 
-PASS → continue
-FAIL → stop
+PASS → continue FAIL → stop
 
 The Jenkinsfile uses:
 
 waitForQualityGate abortPipeline: true
 
-If the Quality Gate fails, Jenkins stops before Docker push and EKS deployment.
+If the Quality Gate fails, Jenkins stops before Docker push and EKS
+deployment.
 
 22.6 Docker Build
 
@@ -758,24 +659,24 @@ aws-jenkins-credentials
 
 Configure access:
 
-aws eks update-kubeconfig \
-  --region YOUR_AWS_REGION \
-  --name YOUR_EKS_CLUSTER_NAME
+aws eks update-kubeconfig\
+--region YOUR_AWS_REGION\
+--name YOUR_EKS_CLUSTER_NAME
 
 Update the frontend Deployment:
 
-kubectl set image deployment/frontend \
-  frontend=YOUR_DOCKERHUB_USERNAME/cafe-frontend:$BUILD_NUMBER
+kubectl set image deployment/frontend\
+frontend=YOUR_DOCKERHUB_USERNAME/cafe-frontend:\$BUILD_NUMBER
 
 Update the backend Deployment:
 
-kubectl set image deployment/backend \
-  backend=YOUR_DOCKERHUB_USERNAME/cafe-backend:$BUILD_NUMBER
+kubectl set image deployment/backend\
+backend=YOUR_DOCKERHUB_USERNAME/cafe-backend:\$BUILD_NUMBER
 
 22.9 Rollout Verification
 
-kubectl rollout status deployment/frontend
-kubectl rollout status deployment/backend
+kubectl rollout status deployment/frontend kubectl rollout status
+deployment/backend
 
 23. Configure Datadog
 
@@ -783,8 +684,7 @@ The project uses the Datadog Helm chart.
 
 23.1 Add Helm Repository
 
-helm repo add datadog https://helm.datadoghq.com
-helm repo update
+helm repo add datadog https://helm.datadoghq.com helm repo update
 
 23.2 Create Namespace
 
@@ -798,9 +698,9 @@ export DD_API_KEY="YOUR_DATADOG_API_KEY"
 
 Create the Kubernetes Secret:
 
-kubectl create secret generic datadog-secret \
-  --namespace datadog \
-  --from-literal=api-key="$DD_API_KEY"
+kubectl create secret generic datadog-secret\
+--namespace datadog\
+--from-literal=api-key="\$DD_API_KEY"
 
 Do not commit the API key to GitHub.
 
@@ -812,57 +712,43 @@ deployment/monitoring/datadog/values.yaml
 
 Use:
 
-datadog:
-  apiKeyExistingSecret: datadog-secret
-  clusterName: YOUR_EKS_CLUSTER_NAME
-  site: datadoghq.com
+datadog: apiKeyExistingSecret: datadog-secret clusterName:
+YOUR_EKS_CLUSTER_NAME site: datadoghq.com
 
-logs:
-  enabled: true
-  containerCollectAll: true
+logs: enabled: true containerCollectAll: true
 
-processAgent:
-  enabled: true
+processAgent: enabled: true
 
 The API key must not be stored in values.yaml.
 
 23.5 Install Datadog Agent
 
-helm install datadog-agent \
-  -f deployment/monitoring/datadog/values.yaml \
-  datadog/datadog \
-  --namespace datadog
+helm install datadog-agent\
+-f deployment/monitoring/datadog/values.yaml\
+datadog/datadog\
+--namespace datadog
 
 23.6 Verify Datadog
 
-kubectl get pods -n datadog
-kubectl get daemonset -n datadog
-helm list -n datadog
+kubectl get pods -n datadog kubectl get daemonset -n datadog helm list
+-n datadog
 
 23.7 Verify Kubernetes Monitoring
 
 In Datadog:
 
-Infrastructure
-→ Kubernetes
+Infrastructure → Kubernetes
 
 Verify:
 
-EKS nodes
-Pods
-Containers
-CPU usage
-Memory usage
-Network usage
-Pod restarts
-Node health
+EKS nodes Pods Containers CPU usage Memory usage Network usage Pod
+restarts Node health
 
 23.8 Verify Logs
 
 With container log collection enabled, open:
 
-Logs
-→ Explorer
+Logs → Explorer
 
 Use application/service filters as required.
 
@@ -870,29 +756,20 @@ Use application/service filters as required.
 
 Recommended dashboard metrics:
 
-EKS CPU
-EKS memory
-Pod CPU
-Pod memory
-Pod restarts
-Network traffic
+EKS CPU EKS memory Pod CPU Pod memory Pod restarts Network traffic
 Application logs
 
 23.10 Create Alerts
 
 Recommended monitors:
 
-High CPU
-High memory
-High disk usage
-Pod unavailable
-Pod restart / crash-loop
-Node unavailable
-High application error rate
+High CPU High memory High disk usage Pod unavailable Pod restart /
+crash-loop Node unavailable High application error rate
 
 24. First End-to-End Deployment
 
-After infrastructure and service configuration is complete, test the complete CI/CD flow.
+After infrastructure and service configuration is complete, test the
+complete CI/CD flow.
 
 Step 1: Make a Code Change
 
@@ -900,8 +777,7 @@ Make a small application change.
 
 Step 2: Commit
 
-git add .
-git commit -m "Update application"
+git add . git commit -m "Update application"
 
 Step 3: Push
 
@@ -925,8 +801,7 @@ Jenkins sends the source code for analysis.
 
 Step 8: Verify Quality Gate
 
-PASS → continue
-FAIL → pipeline stops
+PASS → continue FAIL → pipeline stops
 
 Step 9: Verify Docker Build
 
@@ -946,43 +821,33 @@ Jenkins updates the frontend and backend Deployments.
 
 Step 13: Verify Rollout
 
-kubectl rollout status deployment/frontend
-kubectl rollout status deployment/backend
+kubectl rollout status deployment/frontend kubectl rollout status
+deployment/backend
 
 Step 14: Verify Application
 
-kubectl get pods
-kubectl get deployments
-kubectl get services
-kubectl get ingress
+kubectl get pods kubectl get deployments kubectl get services kubectl
+get ingress
 
 Open the frontend using the Ingress/load-balancer address.
 
 Test:
 
-Login
-Cognito authentication
-Frontend-to-backend API calls
-DynamoDB operations
-Application functionality
+Login Cognito authentication Frontend-to-backend API calls DynamoDB
+operations Application functionality
 
 Step 15: Verify Datadog
 
 Check:
 
-EKS cluster
-Nodes
-Pods
-Metrics
-Logs
-Alerts
+EKS cluster Nodes Pods Metrics Logs Alerts
 
 25. Rollback
 
 Check deployment history:
 
-kubectl rollout history deployment/frontend
-kubectl rollout history deployment/backend
+kubectl rollout history deployment/frontend kubectl rollout history
+deployment/backend
 
 Rollback frontend:
 
@@ -994,29 +859,18 @@ kubectl rollout undo deployment/backend
 
 Verify:
 
-kubectl rollout status deployment/frontend
-kubectl rollout status deployment/backend
+kubectl rollout status deployment/frontend kubectl rollout status
+deployment/backend
 
 26. Security Checklist
 
 Never commit:
 
-Real .env files
-AWS access keys
-AWS secret keys
-Docker Hub passwords
-Docker Hub access tokens
-SonarQube tokens
-Datadog API keys
-SSH private keys
-Terraform state files
+Real .env files AWS access keys AWS secret keys Docker Hub passwords
+Docker Hub access tokens SonarQube tokens Datadog API keys SSH private
+keys Terraform state files
 
 Use:
 
-.env.example
-Jenkins Credentials
-Kubernetes Secrets
-IAM roles / workload identity
-Restricted Security Groups
-Least-privilege IAM permissions
-
+.env.example Jenkins Credentials Kubernetes Secrets IAM roles / workload
+identity Restricted Security Groups Least-privilege IAM permissions
