@@ -177,39 +177,65 @@ Use `.env.example` only for placeholders and documentation.
 
 ---
 
-## 5. Configure Amazon Cognito
+## Cognito Setup :
 
-### 5.1 Create User Pool
+1. **AWS Console → Cognito → User Pools → Create user pool**
 
-In AWS Console:
+2. **Application type:** Select **Single-page application (SPA)**.
 
-```text
-Amazon Cognito
-→ User Pools
-→ Create user pool
-```
+3. **Sign-in option:** Select **Email**.
 
-Save the:
+4. **Required attribute:** Select **email**.
 
-```text
-User Pool ID
-```
+5. **MFA:** Select **No MFA** for this project.
 
-### 5.2 Create App Client
+6. **Self sign-up:** Enable it if users should register themselves.
 
-Inside the User Pool:
+7. **Create the User Pool.**
+
+8. Copy the **User Pool ID**:
 
 ```text
-Applications
-→ App clients
-→ Create app client
+ap-south-1_xxxxxxxxx
 ```
 
-Save the:
+9. Go to **Applications → App clients → Create app client** and create a **public SPA client** without a client secret.
+
+10. Copy the **Client ID**.
+
+11. Configure callback/sign-out URLs if using Cognito Hosted UI/OAuth:
 
 ```text
-Client ID
+http://localhost:5173/
+https://YOUR_FRONTEND_DOMAIN/
 ```
+
+12. Configure OAuth when required:
+
+```text
+Authorization code grant
+Scopes: openid, email
+```
+
+13. Put the values in the frontend `.env`:
+
+```env
+VITE_COGNITO_USER_POOL_ID=YOUR_USER_POOL_ID
+VITE_COGNITO_CLIENT_ID=YOUR_CLIENT_ID
+VITE_API_BASE_URL=http://localhost:4000/api
+```
+
+14. Put the corresponding backend values in `app/backend/.env`:
+
+```env
+AWS_REGION=ap-south-1
+COGNITO_USER_POOL_ID=YOUR_USER_POOL_ID
+COGNITO_CLIENT_ID=YOUR_CLIENT_ID
+```
+
+15. Test **signup/login** locally before moving to Docker, Kubernetes, and Jenkins.
+
+16. Keep the real `.env` files **out of GitHub**; commit only `.env.example`.
 
 Do not put a private client secret in frontend code.
 
