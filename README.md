@@ -177,91 +177,90 @@ Use `.env.example` only for placeholders and documentation.
 
 ---
 
-## Cognito Setup :
+### 5. Cognito Setup
 
-1. **AWS Console → Cognito → User Pools → Create user pool**
+1. **Create User Pool**
+   - Go to **AWS Console → Cognito → User Pools**.
+   - Click **Create user pool**.
+   - Select **Single-page application (SPA)**.
+   - Enter application name: `cafe-frontend`.
 
-2. **Application type:** Select **Single-page application (SPA)**.
+2. **Sign-in Options**
+   - Select **Email**.
 
-3. **Sign-in option:** Select **Email**.
+3. **User Attributes**
+   - Select **Email** as required.
+   - Select **Name** as required.
 
-4. **Required attribute:** Select **email**.
+4. **Email Verification**
+   - Find **Attribute verification and user account confirmation**.
+   - Click **Edit** if required.
+   - Enable **Cognito-assisted verification and confirmation**.
+   - Select **Email** under attributes to verify.
+   - Save/continue.
 
-5. **MFA:** Select **No MFA** for this project.
+5. **App Client**
+   - Select **Single-page application**.
+   - Enter application name: `cafe-frontend`.
+   - Make sure **client secret is NOT generated**.
+   - Create the app client.
 
-6. **Self sign-up:** Enable it if users should register themselves.
+6. **Create Pool**
+   - Review the settings.
+   - Click **Create user pool**.
 
-7. **Create the User Pool.**
+7. **Copy Cognito Details**
+   - From the created user pool, copy:
+     - **User Pool ID**
+     - **App Client ID**
+     - **AWS Region**
 
-8. Copy the **User Pool ID**:
+   Example:
 
 ```text
-ap-south-1_xxxxxxxxx
+User Pool ID: eu-north-1_XXXXXXXX
+Client ID: XXXXXXXXXXXXXXXXX
+Region: eu-north-1
 ```
 
-9. Go to **Applications → App clients → Create app client** and create a **public SPA client** without a client secret.
-
-10. Copy the **Client ID**.
-
-11. Configure callback/sign-out URLs if using Cognito Hosted UI/OAuth:
+8. **Configure Backend `.env`**
+   - Open:
 
 ```text
-http://localhost:5173/
-https://YOUR_FRONTEND_DOMAIN/
+backend/.env
 ```
 
-12. Configure OAuth when required:
+   - Add/update:
+
+```env
+COGNITO_USER_POOL_ID=your-user-pool-id
+COGNITO_CLIENT_ID=your-client-id
+AWS_REGION=eu-north-1
+```
+
+9. **Configure Frontend `.env`**
+   - Open:
 
 ```text
-Authorization code grant
-Scopes: openid, email
+frontend/.env
 ```
 
-13. Put the values in the frontend `.env`:
+   - Add/update:
 
 ```env
-VITE_COGNITO_USER_POOL_ID=YOUR_USER_POOL_ID
-VITE_COGNITO_CLIENT_ID=YOUR_CLIENT_ID
-VITE_API_BASE_URL=http://localhost:4000/api
+VITE_COGNITO_USER_POOL_ID=your-user-pool-id
+VITE_COGNITO_CLIENT_ID=your-client-id
+VITE_COGNITO_REGION=eu-north-1
 ```
 
-14. Put the corresponding backend values in `app/backend/.env`:
+   - Replace the values with your actual Cognito values.
 
-```env
-AWS_REGION=ap-south-1
-COGNITO_USER_POOL_ID=YOUR_USER_POOL_ID
-COGNITO_CLIENT_ID=YOUR_CLIENT_ID
-```
-
-15. Test **signup/login** locally before moving to Docker, Kubernetes, and Jenkins.
-
-16. Keep the real `.env` files **out of GitHub**; commit only `.env.example`.
-
-Do not put a private client secret in frontend code.
-
-### 5.3 Update Frontend `.env`
-
-```env
-VITE_COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
-VITE_COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
-```
-
-### 5.4 Update Backend `.env`
-
-```env
-AWS_REGION=ap-south-1
-COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
-COGNITO_CLIENT_ID=YOUR_COGNITO_CLIENT_ID
-```
-
-### 5.5 Configure Callback and Sign-out URLs
-
-If the application uses Cognito Hosted UI or OAuth, configure the deployed frontend URL in the Cognito app client settings.
-
-Use the exact URL required by the application's authentication flow.
-
----
-
+10. **Test Authentication**
+    - Run the application locally.
+    - Test **signup**.
+    - Verify the email.
+    - Test **login**.
+    - Confirm that Cognito authentication works successfully.
 ## 6. Configure DynamoDB
 
 Create the required DynamoDB tables in the same AWS region used by the backend.
